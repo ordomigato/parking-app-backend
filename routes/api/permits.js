@@ -3,7 +3,7 @@ const router = express.Router();
 const { userAuth, checkRole } = require("../../utils/auth");
 const { check, validationResult } = require("express-validator");
 const moment = require("moment");
-const { Permit, Location } = require("../../models");
+const { Permit, Location, User } = require("../../models");
 
 // @route       GET api/permits
 // @desc        Get all Permit
@@ -309,7 +309,7 @@ router.put(
       formattedExpDate = moment(expDate).format("YYYY-MM-DD HH:mm:ss");
 
       // update values if they exist in body - could refactor, but meh
-      const updatedPermit = await Permit.update(
+      await Permit.update(
         {
           firstName: firstName || permit.firstName,
           lastName: lastName || permit.lastName,
@@ -325,8 +325,14 @@ router.put(
           expDate: formattedExpDate || permit.expDate,
           unit: unit || permit.unit,
         },
-        { where: { id: req.params.id } }
+        { where: { id: req.params.id }, returning: true, plain: true }
       );
+
+      // find updated permit to return
+      const updatedPermit = await Permit.findOne({
+        Where: { id: req.params.id },
+        include: ["location", "sublocation", "user"],
+      });
 
       return res.status(200).json({
         message: ["Permit was updated"],
