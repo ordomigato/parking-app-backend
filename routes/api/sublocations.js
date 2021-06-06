@@ -64,7 +64,11 @@ router.post(
   [
     userAuth,
     checkRole([1, 2]), // admin or superadmin
-    [check("name", "Please enter the name of the sublocation").not().isEmpty()],
+    [
+      check("sublocationName", "Please enter the name of the sublocation")
+        .not()
+        .isEmpty(),
+    ],
     [
       check("locationId", "ERROR: no location associated location")
         .not()
@@ -78,7 +82,7 @@ router.post(
     }
 
     try {
-      let { name, locationId } = req.body;
+      let { sublocationName, locationId } = req.body;
 
       // get location data for further processing
       const locationData = await Location.findOne({
@@ -93,15 +97,21 @@ router.post(
       }
 
       // Insert into table
-      const sublocation = await Sublocation.create({
-        name,
+      await Sublocation.create({
+        name: sublocationName,
         locationId,
+      });
+
+      // Get location with updated information
+      const location = await Location.findOne({
+        where: { id: locationId },
+        include: ["sublocations"],
       });
 
       return res.status(200).json({
         message: ["Sublocation was added"],
         success: true,
-        sublocation,
+        location,
       });
     } catch (err) {
       console.log(err);
@@ -169,28 +179,26 @@ router.put(
 // @desc        Delete a sublocation by its ID
 // @access      Admin Only
 router.delete(
-  "/delete/:id",
+  "/delete",
   userAuth,
   checkRole([1, 2]), // admin or superadmin
   async (req, res) => {
     try {
-      const sublocation = await Sublocation.findOne({
-        where: { id: req.params.id },
+      const sublocations = await Sublocation.destroy({
+        where: { id: req.body },
       });
 
-      if (!sublocation) {
+      if (!sublocations) {
         return res.status(401).json({
-          errors: [{ msg: "Sublocation was not found to delete" }],
+          errors: [{ msg: "Sublocation(s) was not found to delete" }],
           success: false,
         });
       }
 
-      sublocation.destroy();
-
       return res.status(200).json({
         message: ["Sublocation was deleted"],
         success: true,
-        sublocation,
+        sublocations,
       });
     } catch (err) {
       console.log(err);

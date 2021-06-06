@@ -108,7 +108,15 @@ router.put(
   [
     userAuth,
     checkRole([1, 2]), // admin or superadmin
-    [check("name", "Name cannot be blank").not().isEmpty()],
+    [
+      check("name", "Name cannot be blank").not().isEmpty(),
+      check("maxFormDuration")
+        .isInt({ gt: 0, lt: 32 })
+        .withMessage("Max form duraction must be between 1 and 31"),
+      check("maxMonthlyDuration")
+        .isInt({ gt: 0, lt: 32 })
+        .withMessage("Max monthly duraction must be between 1 and 31"),
+    ],
   ],
   async (req, res) => {
     const errors = validationResult(req);

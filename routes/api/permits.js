@@ -159,26 +159,48 @@ router.post(
         });
       }
 
-      // check if licence plate can still be registered
-      const prevPermits = await Permit.findAll({ where: { vplate } });
-      const accumulatedDuration = prevPermits.reduce(
-        (prev, next) => prev + next.duration,
-        duration
-      );
+      // check if licence plate can be registered
+      const prevPermits = await Permit.findAll({
+        where: { vplate },
+        order: [["createdAt", "DESC"]],
+      });
 
-      console.log(locationData.maxMonthlyDuration, accumulatedDuration);
+      // check if most recent entry is still active
+      if (prevPermits.length > 0) {
+        const mostRecentPermitExpiry = moment(prevPermits[0].expDate).format(
+          "YYYY-MM-DD HH:mm:ss"
+        );
+        const currentTime = moment().format("YYYY-MM-DD HH:mm:ss");
 
-      if (locationData.maxMonthlyDuration) {
-        if (accumulatedDuration > locationData.maxMonthlyDuration)
+        if (mostRecentPermitExpiry > currentTime) {
           return res.status(409).json({
             errors: [
               {
-                msg:
-                  "You have reached the max allotment of time you may register for",
+                msg: `The license plate: ${vplate} already has an active permit`,
               },
             ],
             success: false,
           });
+        }
+
+        // check if max allotment has been exceeded
+        const accumulatedDuration = prevPermits.reduce(
+          (prev, next) => prev + next.duration,
+          duration
+        );
+
+        if (locationData.maxMonthlyDuration) {
+          if (accumulatedDuration > locationData.maxMonthlyDuration)
+            return res.status(409).json({
+              errors: [
+                {
+                  msg:
+                    "You have reached the max allotment of time you may register for",
+                },
+              ],
+              success: false,
+            });
+        }
       }
 
       // calculate expiry date
@@ -299,8 +321,6 @@ router.put(
       expDate,
     } = req.body;
 
-    console.log(req.params.id);
-
     try {
       // find permit
       const permit = await Permit.findOne({ Where: { id: req.params.id } });
@@ -330,7 +350,7 @@ router.put(
 
       // find updated permit to return
       const updatedPermit = await Permit.findOne({
-        Where: { id: req.params.id },
+        where: { id: req.params.id },
         include: ["location", "sublocation", "user"],
       });
 
